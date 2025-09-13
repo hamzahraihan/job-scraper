@@ -1,10 +1,6 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 const ObjectsToCsv = require("objects-to-csv");
-const objectsToCsv = require("objects-to-csv");
-
-let url =
-  "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=Javascript&location=Indonesia&geoId=102478259&currentJobId=4300010785&position=1&pageNum=0&start=0";
 
 // oop
 // class JobScraper {
@@ -27,15 +23,26 @@ let url =
 //   }
 // }
 
-async function runScraper(url) {
-  let linkeninJobs = [];
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  try {
-    axios(url).then((response) => {
+async function runScraper() {
+  let linkedInJobs = [];
+  for (let pageNumber = 0; pageNumber < 1000; pageNumber += 25) {
+    let url = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=Javascript&location=Indonesia&geoId=102478259&currentJobId=4300010785&position=1&pageNum=0&start=${pageNumber}`;
+
+    try {
+      const response = await axios(url);
+
+      // Add delay AFTER processing each page
+      console.log("Waiting 5 seconds before next request...");
+      await delay(5000);
+
       const html = response.data;
       const $ = cheerio.load(html);
       const jobs = $("li");
-      jobs.each((index, element) => {
+      jobs.each((_, element) => {
         const jobTitle = $(element)
           .find("h3.base-search-card__title")
           .text()
@@ -53,20 +60,21 @@ async function runScraper(url) {
 
         const link = $(element).find("a.base-card__full-link").attr("href");
 
-        linkeninJobs.push({
+        linkedInJobs.push({
           job_title: jobTitle,
           company: company,
           location: location,
           link: link,
         });
-        console.log(linkeninJobs);
       });
-      const csv = new ObjectsToCsv(linkeninJobs);
+      console.log(`scraping in progress page number = ${pageNumber}`);
+
+      const csv = new ObjectsToCsv(linkedInJobs);
       csv.toDisk("./linkedInJob.csv", { append: true });
-    });
-  } catch (error) {
-    console.error(error);
+    } catch (error) {
+      console.error(error.message);
+    }
   }
 }
 
-runScraper(url);
+runScraper();
